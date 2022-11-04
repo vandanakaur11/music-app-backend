@@ -36,7 +36,12 @@ const s3 = new AWS.S3({
 // middlewares
 app.use(
   cors({
-    origin: "*",
+    origin: [
+      "http://localhost:3000",
+      "https://app.ianmulder.us",
+      "https://music-app-ten.vercel.app",
+      "https://music-app-rho-ruby.vercel.app",
+    ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   })
 );
