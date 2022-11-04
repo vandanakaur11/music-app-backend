@@ -99,7 +99,10 @@ exports.createCode = async (req, res) => {
 exports.getAllCodes = async (req, res) => {
   try {
     const codes = await Code.find();
-    codes && res.status(200).json({ status: "success", data: { codes } });
+    codes &&
+      res
+        .status(200)
+        .json({ status: "success", results: codes.length, data: { codes } });
   } catch (error) {
     res.status(400).json({ status: "fail", message: error });
   }
@@ -122,7 +125,7 @@ exports.createDuration = async (req, res) => {
     if (existingCode) {
       return res.status(400).json({
         status: "fail",
-        message: `${duration} duration already exist, Try new one!`,
+        message: "Duration already exist, Try new one!",
       });
     }
 
@@ -143,7 +146,11 @@ exports.getAllDurations = async (req, res) => {
   try {
     const durations = await Duration.find();
     durations &&
-      res.status(200).json({ status: "success", data: { durations } });
+      res.status(200).json({
+        status: "success",
+        results: durations.length,
+        data: { durations },
+      });
   } catch (error) {
     res.status(400).json({ status: "fail", message: error });
   }
@@ -153,20 +160,20 @@ exports.createSubscription = async (req, res) => {
   console.log("req.body subscription >>>>>>>", req.body);
 
   try {
-    const { codeID, durationID, songDetail, price } = req.body;
+    const { code, duration, songDetail, price } = req.body;
 
-    console.log("codeID >>>>>>>>", codeID);
-    console.log("durationID >>>>>>>>", durationID);
+    console.log("code >>>>>>>>", code);
+    console.log("duration >>>>>>>>", duration);
     console.log("songDetail >>>>>>>>", songDetail);
     console.log("price >>>>>>>>", price);
 
-    const existingSubscription = await SubscriptionPlan.findOne({ codeID });
-
-    if (!codeID || !durationID || !songDetail.length > 0 || !price) {
+    if (!code || !duration || !songDetail.length > 0 || !price) {
       return res
         .status(400)
         .json({ status: "fail", message: "All fields must be filled!" });
     }
+
+    const existingSubscription = await SubscriptionPlan.findOne({ duration });
 
     if (existingSubscription) {
       return res.status(400).json({
@@ -185,6 +192,7 @@ exports.createSubscription = async (req, res) => {
         data: { subscription: newSubscriptionPlan },
       });
   } catch (error) {
+    console.error("error: ", error);
     res.status(400).json({ status: "fail", message: error });
   }
 };
@@ -194,7 +202,11 @@ exports.getAllSubscriptions = async (req, res) => {
     const subscriptions = await SubscriptionPlan.find();
 
     subscriptions &&
-      res.status(200).json({ status: "success", data: { subscriptions } });
+      res.status(200).json({
+        status: "success",
+        results: subscriptions.length,
+        data: { subscriptions },
+      });
   } catch (error) {
     console.error("error >>>>>>>>>>>>", error);
     res.status(400).json({ status: "fail", message: error });
@@ -202,8 +214,12 @@ exports.getAllSubscriptions = async (req, res) => {
 };
 
 exports.getSubscriptions = async (req, res) => {
+  const { id } = req.params;
+
+  // res.status(200).json({ msg: "Get successfully.", subscription });
+
   try {
-    const subscription = await SubscriptionPlan.findById(req.params.id);
+    const subscription = await SubscriptionPlan.findById(id);
 
     /* const data = await SubscriptionPlan.aggregate([
       {
@@ -213,60 +229,51 @@ exports.getSubscriptions = async (req, res) => {
       },
       {
         $lookup: {
-          from: "Code",
+          from: "codes",
           localField: "codeID",
           foreignField: "_id",
-          as: "CodeData",
+          as: "codeData",
         },
       },
-      {
-        $unwind: "$Code",
-      },
+      // { $unwind: { path: "$codeData", preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
-          from: "Duration",
+          from: "durations",
           localField: "durationID",
           foreignField: "_id",
-          as: "DurationData",
+          as: "durationData",
         },
       },
-      {
-        $unwind: "$Duration",
-      },
+      // { $unwind: { path: "$durationData", preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
-          from: "Album",
+          from: "albums",
           localField: "albumID",
           foreignField: "id",
-          as: "AlbumData",
+          as: "albumData",
         },
       },
-      {
-        $unwind: "$Album",
-      },
+      // { $unwind: { path: "$albumData", preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
-          from: "Song",
-          localField: "songIDs",
+          from: "songs",
+          localField: "songDetail.songIDs",
           foreignField: "_id",
-          as: "SongsData",
+          as: "songsData",
         },
       },
+      // { $unwind: { path: "$songsData", preserveNullAndEmptyArrays: true } },
       {
-        $unwind: "$Song",
-      },
-      {
-        $project: {
-          "CodeData.code": 1,
-          "DurationData.duration": 1,
-          "AlbumData.Album_Name": 1,
-          "SongsData.Song_Name": 1,
+        project: {
+          codeData: 1,
+          durationData: 1,
+          albumData: 1,
+          songsData: 1,
         },
       },
     ]);
 
     console.log("getSubscriptions data >>>>>>>>>>>>>>", data); */
-
     subscription &&
       res.status(200).json({ status: "success", data: { subscription } });
   } catch (error) {

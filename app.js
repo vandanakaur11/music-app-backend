@@ -130,7 +130,9 @@ app.use((req, res, next) => {
 cron.schedule("*/15 * * * *", async () => {
   console.log("running a task every minute");
   const users = await User.find({ trial: true });
+
   let expired = [];
+
   users.map((user) => {
     let fomatted_date = moment(user.createdAt).format("YYYY-MM-DD");
 

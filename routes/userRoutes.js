@@ -14,6 +14,8 @@ const {
   resetPassword,
   payPayment,
   successPayment,
+  findAccount,
+  oneYearPremiumSubscription,
 } = require("../controllers/userController");
 const checkAuth = require("../middlewares/check-auth");
 
@@ -24,7 +26,7 @@ routes.post("/signup", signUp);
 routes.post("/signin", signIn);
 routes.post("/forgot-password", forgotPassword);
 routes.patch("/reset-password/:id", resetPassword);
-// routes.get("/expiring-days", checkAuth, getExpiringDays);
+routes.get("/expiring-days/:email", getExpiringDays);
 routes.get("/albums", getAlbums);
 routes.get("/history/:user_email", getHistory);
 routes.get("/songs/:album_name", getSongs);
@@ -33,5 +35,7 @@ routes.get("/favourites/:id", checkAuth, handleFavourites);
 routes.get("/getFavourites", checkAuth, getFavourites);
 routes.get("/pay", payPayment);
 routes.get("/success", successPayment);
+routes.get("/find-account/:email", findAccount);
+routes.patch("/premium-code/:email", oneYearPremiumSubscription);
 
 module.exports = routes;

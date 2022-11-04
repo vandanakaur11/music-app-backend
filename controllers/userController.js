@@ -1,26 +1,27 @@
 const {
   singUpValidation,
   singInValidation,
-} = require("../validation/adminValidation");
+} = require("./../validation/adminValidation");
 const bcrypt = require("bcrypt");
-const User = require("../models/User");
+const User = require("./../models/User");
+const SubscriptionPlan = require("./../models/SubscriptionPlan");
 const jwt = require("jsonwebtoken");
-const Albums = require("../models/Album");
-const Songs = require("../models/Songs");
-const History = require("../models/History");
-const codes = require("../data/codes");
+const Albums = require("./../models/Album");
+const Songs = require("./../models/Songs");
+const History = require("./../models/History");
+const codes = require("./../data/codes");
 const nodemailer = require("nodemailer");
 const moment = require("moment");
 const { env } = require("process");
 const sgMail = require("@sendgrid/mail");
 const paypal = require("paypal-rest-sdk");
 
+// console.log("env >>>>>>>>>>>>>", env);
+
 paypal.configure({
-  mode: "sandbox", //sandbox or live
-  client_id:
-    "AYA6k3LTstaKtNVcbK4qG7AZNnD9jXdVBEbdZggP2nOAoUGK5pAf1JRF0bmXLynB_qK0RaugfWZh10CO",
-  client_secret:
-    "EH6HqVMeMBr0dWwsmHpzDZplp6C-I3xzRfatAPieA26__hyLYGopoBu3huoYnxmiFwviyD9C-KZWoApr",
+  mode: env.PAYPAL_MODE, //sandbox or live
+  client_id: env.PAYPAL_CLIENT_ID,
+  client_secret: env.PAYPAL_CLIENT_SECRET,
 });
 
 sgMail.setApiKey(env.SENDGRID_API_KEY);
@@ -28,75 +29,93 @@ sgMail.setApiKey(env.SENDGRID_API_KEY);
 // console.log("env >>>>>>>", env);
 
 exports.signUp = async (req, res) => {
-  // try {
-  //   const { email, password } = req.body;
-  //   // Validate fields
-  //   if (!email || !password) {
-  //     return res
-  //       .status(400)
-  //       .json({ status: "fail", message: "All fields must be filled!" });
-  //   }
-  //   // Check existing user
-  //   const existingUser = await User.findOne({ email });
-  //   if (existingUser) {
-  //     return res.status(400).json({
-  //       status: "fail",
-  //       message: `This email '${email}' is already associated with an account!`,
-  //     });
-  //   }
-  //   // Hash password
-  //   const salt = await bcrypt.genSalt(10);
-  //   const hashPassword = await bcrypt.hash(password, salt);
-  //   const newUser = await User.create({
-  //     email,
-  //     password: hashPassword,
-  //   });
-  //   console.log("newUser", newUser);
-  //   newUser &&
-  //     res.status(201).json({
-  //       status: "success",
-  //       message: "User created successfully.",
-  //       data: {
-  //         email: userEmail,
-  //       },
-  //     });
-  //   // if (newUser) {
-  //   //   // const verificationLink = `${env.CLIENT_URL}/auth/verify/${newUser._id}/${newUser.hashToken}`;
-  //   //   // Send mail via sendgrid
-  //   //   /* const mailDetails = {
-  //   //     from: env.MAIL_USER, // sender email
-  //   //     to: email, // receiver email
-  //   //     subject: "Verification Email - IAN Mulder",
-  //   //     html: `<h4>Greetings from IAN Mulder,</h4><h4>Below is your one time use verify link:</h4><h4>Click here for verification <a href="${verificationLink}">link</a></h4><h4>Please be aware that this verification link is only valid for 1 day.</h4><h4>Sincerely,</h4><h4>The IAN Mulder Team</h4>`,
-  //   //   };
-  //   //   sendMailViaSendGrid(mailDetails); */
-  //   //   // Send mail via nodemailer
-  //   //   const mailOptions = {
-  //   //     from: env.MAIL_USER, // sender email
-  //   //     to: email, // receiver email
-  //   //     subject: "Verification Email - IAN Mulder",
-  //   //     html: `<h4>Greetings from IAN Mulder,<h4>This access code for trial: "${env.trialKey}"</h4><h4>Please be aware that this access code is only valid for 1 day.</h4><h4>Sincerely,</h4><h4>The IAN Mulder Team</h4>`,
-  //   //   };
-  //   //   sendMailViaNodeMailer(mailOptions);
-  //   //   const { email: userEmail } = newUser;
-  //   //   newUser &&
-  //   //     res.status(201).json({
-  //   //       status: "success",
-  //   //       message: "User created successfully.",
-  //   //       data: {
-  //   //         email: userEmail,
-  //   //       },
-  //   //     });
-  //   // }
-  // } catch (error) {
-  //   console.log("error >>>>>>>>", error);
-  //   res.status(400).json({
-  //     status: "fail",
-  //     message: error,
-  //   });
-  // }
-
   try {
+    const { email, password, subscriptionID, subscriptionEndDate } = req.body;
+
+    // Validate fields
+    if (!email || !password || !subscriptionID || !subscriptionEndDate) {
+      return res
+        .status(400)
+        .json({ status: "fail", message: "All fields must be filled!" });
+    }
+
+    // Check existing user
+    const existingUser = await User.findOne({ email });
+
+    if (existingUser) {
+      return res.status(400).json({
+        status: "fail",
+        message: `This email '${email}' is already associated with an account!`,
+      });
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashPassword = await bcrypt.hash(password, salt);
+
+    const newUser = await User.create({
+      email,
+      password: hashPassword,
+      subscriptionID,
+      subscriptionEndDate,
+    });
+
+    console.log("newUser", newUser);
+
+    newUser &&
+      res.status(201).json({
+        status: "success",
+        message: "User created successfully.",
+      });
+
+    // if (newUser) {
+    //   // const verificationLink = `${env.CLIENT_URL}/verify/${newUser._id}/${newUser.hashToken}`;
+
+    //   // Send mail via sendgrid
+
+    //   /* const mailDetails = {
+    //     from: env.MAIL_USER, // sender email
+    //     to: email, // receiver email
+    //     subject: "Verification Email - IAN Mulder",
+    //     html: `<h4>Greetings from IAN Mulder,</h4><h4>Below is your one time use verify link:</h4><h4>Click here for verification <a href="${verificationLink}">link</a></h4><h4>Please be aware that this verification link is only valid for 1 day.</h4><h4>Sincerely,</h4><h4>The IAN Mulder Team</h4>`,
+    //   };
+
+    //   sendMailViaSendGrid(mailDetails); */
+
+    //   // Send mail via nodemailer
+
+    //   // const verificationLink = `<h4>Greetings from IAN Mulder,<h4>This access code for trial: "${env.trialKey}"</h4><h4>Please be aware that this access code is only valid for 1 day.</h4><h4>Sincerely,</h4><h4>The IAN Mulder Team</h4>`;
+    //   // const verificationLink = `<h6>Dear sir/madam,</h6><br /><h6>Congratulations on your sign up to enjoy pianist Ian Mulder’s music albums! We would like to highlight a few features for you:</h6><br /><h6>- Lyrics. Click the “show lyrics” button, when applicable, to follow the lyrics that are being expressed instrumentally.</h6><h6>- Playlist. Save your favorite tracks to your Playlist to listen to them later.</h6><h6>- 20 albums. Enjoy Mulder’s life work and listen to each solo album!</h6><br /><h6>If we can provide you any assistance, please reply to this email.</h6><br /><h6>Yours,</h6><h6>Mulder Music Streaming team</h6>`;
+
+    //   const mailOptions = {
+    //     from: env.MAIL_USER, // sender email
+    //     to: email, // receiver email
+    //     subject: "Verification Email - IAN Mulder",
+    //     html: verificationLink
+    //   };
+
+    //   sendMailViaNodeMailer(mailOptions);
+
+    //   const { email: userEmail } = newUser;
+
+    //   newUser &&
+    //     res.status(201).json({
+    //       status: "success",
+    //       message: "User created successfully.",
+    //       data: {
+    //         email: userEmail,
+    //       },
+    //     });
+    // }
+  } catch (error) {
+    console.log("error >>>>>>>>", error);
+    res.status(400).json({
+      status: "fail",
+      message: error,
+    });
+  }
+
+  /* try {
     let { email, password, code } = req.body;
 
     let trial = false;
@@ -138,7 +157,7 @@ exports.signUp = async (req, res) => {
       status: "fail",
       message: error,
     });
-  }
+  } */
 };
 
 // exports.verifyUser = async (req, res) => {
@@ -301,133 +320,190 @@ exports.signIn = async (req, res) => {
       });
     }
 
-    if (!codes.includes(existingUser.code)) {
-      // return res.status(401).send("Sorry, you are not the owner.");
+    console.log("existingUser >>>>>>>>>>>>", existingUser);
 
-      const { error } = singInValidation.validate(req.body);
+    console.log(
+      "codes.includes(existingUser.code) >>>>>>>>>>>>>>",
+      codes.includes(existingUser.code)
+    );
 
-      if (error) return res.status(400).send(error.details[0].message);
+    console.log(
+      "!codes.includes(existingUser.code) >>>>>>>>>>>>>>",
+      !codes.includes(existingUser.code)
+    );
 
-      if (existingUser.code === env.trialKey && existingUser.trial === "no") {
-        return res.status(401).json({
-          status: "fail",
-          message: "Your Trial Period has expired!",
-        });
-      } else if (
-        existingUser.code === env.trialKey &&
-        existingUser.trial === "yes"
-      ) {
+    console.log("existingUser.code >>>>>>>>>>>>>>", existingUser.code);
+
+    console.log(
+      "existingUser.code === env.trialKey >>>>>>>>>>>>>>",
+      existingUser.code === env.trialKey
+    );
+
+    console.log(
+      "existingUser.trial === false >>>>>>>>>>>>>>",
+      existingUser.trial === false
+    );
+
+    console.log(
+      "existingUser.code === env.trialKey && existingUser.trial === false >>>>>>>>>>>>>>",
+      existingUser.code === env.trialKey && existingUser.trial === false
+    );
+
+    console.log(
+      "existingUser.trial === true >>>>>>>>>>>>>>",
+      existingUser.trial === true
+    );
+
+    if (existingUser.code === undefined) {
+      console.log("existingUser >>>>>>>>>>>>>>>", existingUser);
+
+      const { favourites, subscriptionEndDate, _id, email, subscriptionID } =
+        existingUser;
+
+      const token = jwt.sign({ id: _id }, env.JWT_SECRET_KEY);
+
+      const userFilteredData = Object.assign({
+        favourites,
+        subscriptionEndDate,
+        _id,
+        email,
+        subscriptionID,
+      });
+
+      console.log("userFilteredData >>>>>>>>>>>>>", userFilteredData);
+
+      res
+        .status(200)
+        .json({ status: "success", data: { user: userFilteredData }, token });
+    } else {
+      if (!codes.includes(existingUser.code)) {
+        // return res.status(401).send("Sorry, you are not the owner.");
+
+        const { error } = singInValidation.validate(req.body);
+
+        if (error) return res.status(400).send(error.details[0].message);
+
+        if (
+          existingUser.code === env.trialKey &&
+          existingUser.trial === false
+        ) {
+          return res.status(401).json({
+            status: "fail",
+            message: "Your Trial Period has expired!",
+          });
+        } else if (
+          existingUser.code === env.trialKey &&
+          existingUser.trial === true
+        ) {
+          const token = jwt.sign({ id: existingUser._id }, env.JWT_SECRET_KEY);
+
+          let createdAt = moment(existingUser.createdAt).format("YYYY-MM-DD");
+          let current_date = moment().format("YYYY-MM-DD");
+
+          let diff = Math.abs(
+            createdAt.split("-")[2] - current_date.split("-")[2]
+          );
+
+          let expiresIn = 3 - diff;
+          const user = { email, token, expiresIn };
+
+          res.status(200).send(user);
+        }
+      } else {
         const token = jwt.sign({ id: existingUser._id }, env.JWT_SECRET_KEY);
-        let createdAt = moment(existingUser.createdAt).format("YYYY-MM-DD");
-        let current_date = moment().format("YYYY-MM-DD");
-
-        let diff = Math.abs(
-          createdAt.split("-")[2] - current_date.split("-")[2]
-        );
-
-        let expiresIn = 3 - diff;
-        const user = { email, token, expiresIn };
-
+        const user = {
+          email,
+          token,
+          data: {
+            user: { email, subscriptionID: "635bd8fdcb397b3a044d9867" },
+          },
+        };
         res.status(200).send(user);
       }
-    } else {
-      const token = jwt.sign({ id: existingUser._id }, env.JWT_SECRET_KEY);
-      const user = { email, token };
 
-      res.status(200).send(user);
+      // const userDetail = await User.findOne({ email }).select(
+      //   "-password -isVerified -createdAt -updatedAt -__v"
+      // );
+
+      // console.log("userDetail>>>>>>>>>>>>", userDetail);
+
+      // if (userDetail && userDetail.code) {
+      //   if (!codes.includes(userDetail.code))
+      //     return res.status(401).send("Sorry, you are not the owner.");
+
+      //   const { error } = singUpValidation.validate(req.body);
+
+      //   if (error) return res.status(400).send(error.details[0].message);
+
+      //   if (userDetail.code === env.trialKey) {
+      //     if (userDetail.trial === "no") {
+      //       return res.status(401).send("Your Trial Period has expired!");
+      //     } else if (userDetail.trial === "yes") {
+      //       // const validPass = await bcrypt.compare(password, userDetail.password);
+      //       // if (!validPass) return res.status(401).send("Incorrect Password");
+
+      //       const token = jwt.sign({ id: userDetail._id }, env.JWT_SECRET_KEY);
+
+      //       let createdAt = moment(userDetail.createdAt).format("YYYY-MM-DD");
+      //       let current_date = moment().format("YYYY-MM-DD");
+
+      //       let diff = Math.abs(
+      //         createdAt.split("-")[2] - current_date.split("-")[2]
+      //       );
+
+      //       let expiresIn = 3 - diff;
+      //       const user = { email, token, expiresIn };
+
+      //       return res.status(200).send(user);
+      //     }
+      //   } else if (codes.includes(userDetail.code)) {
+      //     const validPass = await bcrypt.compare(password, exist.password);
+      //     if (!validPass) return res.status(401).send("Incorrect Password");
+
+      //     const token = jwt.sign({ id: userDetail._id }, env.JWT_SECRET_KEY);
+
+      //     const user = { email, token };
+
+      //     return res.status(200).send(user);
+      //   } else {
+      //     return res.status(422).send("Sorry, you are not the owner.");
+      //   }
+
+      //   // } else {
+      //   // const { error } = singInValidation.validate(req.body);
+      //   // if (error) return res.status(400).send(error.details[0].message);
+      //   // if (userDetail.code === env.trialKey) {
+      //   //   if (userDetail.trial === "no") {
+      //   //     return res.status(401).send("Your Trial Period has expired!");
+      //   //   } else if (userDetail.trial === "yes") {
+      //   //     const validPass = await bcrypt.compare(password, userDetail.password);
+      //   //     if (!validPass) return res.status(401).send("Incorrect Password");
+      //   //     const token = jwt.sign({ id: userDetail._id }, env.JWT_SECRET_KEY);
+      //   //     let createdAt = moment(userDetail.createdAt).format("YYYY-MM-DD");
+      //   //     let current_date = moment().format("YYYY-MM-DD");
+      //   //     let diff = Math.abs(
+      //   //       createdAt.split("-")[2] - current_date.split("-")[2]
+      //   //     );
+      //   //     let expiresIn = 3 - diff;
+      //   //     const user = { email, token, expiresIn };
+      //   //     return res.status(200).send(user);
+      //   //   }
+      //   // } else if (codes.includes(userDetail.code)) {
+      //   //   const validPass = await bcrypt.compare(password, exist.password);
+      //   //   if (!validPass) return res.status(401).send("Incorrect Password");
+      //   //   const token = jwt.sign({ id: userDetail._id }, env.JWT_SECRET_KEY);
+      //   //   const user = { email, token };
+      //   //   return res.status(200).send(user);
+      //   // } else {
+      //   //   return res.status(422).send("Sorry, you are not the owner.");
+      //   // }
+      // }
+
+      // res.status(200).json({
+      //   status: "success",
+      //   data: { user: userDetail, token: generateToken(email) },
+      // });
     }
-
-    // const userDetail = await User.findOne({ email }).select(
-    //   "-password -isVerified -createdAt -updatedAt -__v"
-    // );
-
-    // console.log("userDetail>>>>>>>>>>>>", userDetail);
-
-    // if (userDetail && userDetail.code) {
-    //   if (!codes.includes(userDetail.code))
-    //     return res.status(401).send("Sorry, you are not the owner.");
-
-    //   const { error } = singUpValidation.validate(req.body);
-
-    //   if (error) return res.status(400).send(error.details[0].message);
-
-    //   if (userDetail.code === env.trialKey) {
-    //     if (userDetail.trial === "no") {
-    //       return res.status(401).send("Your Trial Period has expired!");
-    //     } else if (userDetail.trial === "yes") {
-    //       // const validPass = await bcrypt.compare(password, userDetail.password);
-    //       // if (!validPass) return res.status(401).send("Incorrect Password");
-
-    //       const token = jwt.sign({ id: userDetail._id }, env.JWT_SECRET_KEY);
-    //       let createdAt = moment(userDetail.createdAt).format("YYYY-MM-DD");
-    //       let current_date = moment().format("YYYY-MM-DD");
-
-    //       let diff = Math.abs(
-    //         createdAt.split("-")[2] - current_date.split("-")[2]
-    //       );
-
-    //       let expiresIn = 3 - diff;
-    //       const user = { email, token, expiresIn };
-
-    //       return res.status(200).send(user);
-    //     }
-    //   } else if (codes.includes(userDetail.code)) {
-    //     const validPass = await bcrypt.compare(password, exist.password);
-
-    //     if (!validPass) return res.status(401).send("Incorrect Password");
-
-    //     const token = jwt.sign({ id: userDetail._id }, env.JWT_SECRET_KEY);
-
-    //     const user = { email, token };
-
-    //     return res.status(200).send(user);
-    //   } else {
-    //     return res.status(422).send("Sorry, you are not the owner.");
-    //   }
-    //   // } else {
-    //   // const { error } = singInValidation.validate(req.body);
-
-    //   // if (error) return res.status(400).send(error.details[0].message);
-
-    //   // if (userDetail.code === env.trialKey) {
-    //   //   if (userDetail.trial === "no") {
-    //   //     return res.status(401).send("Your Trial Period has expired!");
-    //   //   } else if (userDetail.trial === "yes") {
-    //   //     const validPass = await bcrypt.compare(password, userDetail.password);
-    //   //     if (!validPass) return res.status(401).send("Incorrect Password");
-
-    //   //     const token = jwt.sign({ id: userDetail._id }, env.JWT_SECRET_KEY);
-    //   //     let createdAt = moment(userDetail.createdAt).format("YYYY-MM-DD");
-    //   //     let current_date = moment().format("YYYY-MM-DD");
-
-    //   //     let diff = Math.abs(
-    //   //       createdAt.split("-")[2] - current_date.split("-")[2]
-    //   //     );
-
-    //   //     let expiresIn = 3 - diff;
-    //   //     const user = { email, token, expiresIn };
-
-    //   //     return res.status(200).send(user);
-    //   //   }
-    //   // } else if (codes.includes(userDetail.code)) {
-    //   //   const validPass = await bcrypt.compare(password, exist.password);
-
-    //   //   if (!validPass) return res.status(401).send("Incorrect Password");
-
-    //   //   const token = jwt.sign({ id: userDetail._id }, env.JWT_SECRET_KEY);
-
-    //   //   const user = { email, token };
-
-    //   //   return res.status(200).send(user);
-    //   // } else {
-    //   //   return res.status(422).send("Sorry, you are not the owner.");
-    //   // }
-    // }
-
-    // res.status(200).json({
-    //   status: "success",
-    //   data: { user: userDetail, token: generateToken(email) },
-    // });
   } catch (err) {
     console.log("err >>>>>>>>", err);
 
@@ -506,9 +582,105 @@ exports.signIn = async (req, res) => {
         return res.status(422).send("Sorry, you are not the owner.");
       }
     } else {
-      return res.status(401).send("User Not Found");
+      return res.status(401).send("User not found!");
     }
   } */
+};
+
+exports.findAccount = async (req, res) => {
+  try {
+    // Check existing user
+    const existingUser = await User.findOne({ email: req.params.email });
+
+    if (!existingUser) {
+      return res.status(400).json({
+        status: "fail",
+        message: "User not found!",
+      });
+    }
+
+    existingUser &&
+      res.status(200).json({
+        status: "success",
+        data: {
+          user: {
+            _id: existingUser._id,
+            email: existingUser.email,
+            subscriptionID: existingUser.subscriptionID,
+            subscriptionEndDate: existingUser.subscriptionEndDate,
+          },
+        },
+      });
+  } catch (err) {
+    console.error("findAccount error >>>>>>>>>>", err);
+  }
+};
+
+exports.oneYearPremiumSubscription = async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    // Check existing user
+    const existingUser = await User.findOne({ email });
+
+    if (!existingUser) {
+      return res.status(400).json({
+        status: "fail",
+        message: "User not found!",
+      });
+    }
+
+    const { code, subscriptionID, subscriptionEndDate } = req.body;
+
+    // Validate fields
+    if (!code) {
+      return res
+        .status(400)
+        .json({ status: "fail", message: "Code field must be filled!" });
+    }
+
+    if (!codes.includes(code)) {
+      return res.status(400).json({
+        status: "success",
+        message: "Invalid Premium Code!, Enter Correct One.",
+      });
+    }
+
+    if (codes.includes(code)) {
+      const updatedSubscription = await User.updateOne(
+        { email },
+        {
+          $set: {
+            code,
+            subscriptionID,
+            subscriptionEndDate,
+          },
+        },
+        { new: true, runValidators: true }
+      );
+
+      updatedSubscription &&
+        res.status(200).json({
+          status: "success",
+          message:
+            "Your subscription has been upgraded successfully for one year...",
+        });
+    }
+  } catch (err) {
+    console.error("oneYearPremiumSubscription err", err);
+  }
+};
+
+exports.updateSubscription = async (req, res) => {
+  try {
+    const updatedSubscription = await User.updateOne(
+      { email: req.params.body },
+      { subscriptionEndDate: req.params.subscriptionEndDate },
+      { new: true, runValidators: true }
+    );
+  } catch (err) {
+    console.error("updateSubscription err", err);
+  }
 };
 
 exports.forgotPassword = async (req, res) => {
@@ -552,7 +724,8 @@ exports.forgotPassword = async (req, res) => {
     );
 
     if (updateCode) {
-      const forgotPassword = `<h4>Greetings from IAN Mulder,</h4><h4>Below is your one time use code:</h4><h4>${resetPasswordCode}</h4><h4>Please be aware that this code is only valid for one hour.</h4><h4>Sincerely,</h4><h4>The IAN Mulder Team</h4>`;
+      // const forgotPassword = `<h4>Greetings from IAN Mulder,</h4><h4>Below is your one time use code:</h4><h4>${resetPasswordCode}</h4><h4>Please be aware that this code is only valid for one hour.</h4><h4>Sincerely,</h4><h4>The IAN Mulder Team</h4>`;
+      const forgotPassword = `<h6>Dear sir/madam</h6>,<br /><br /><h6>The verification code to reset your password is below. It is valid for 1 hour. You can copy and paste this verification code on the <q><b>forgot password</b></q> page now and set your new password.</h6><br /><h6>Code: <b>${resetPasswordCode}</b></h6><br /><h6>If we can provide you any assistance, please reply to this email.</h6><br /><h6>Yours,</h6><h6>Mulder Music Streaming team</h6>`;
 
       // Send mail via sendgrid
 
@@ -656,23 +829,67 @@ exports.resetPassword = async (req, res) => {
 };
 
 exports.getExpiringDays = async (req, res) => {
-  console.log("83", req.userId);
+  // console.log("83", req.params.email);
+
+  console.log("req.params", req.params);
+  console.log("req?.params?.email", req.params.email);
 
   try {
-    // const user = await User.findById(req.userId);
-    User.findById(req.userId).then((user) => {
-      let fomatted_date = moment(user?.createdAt).format("YYYY-MM-DD");
+    const loggedInUser = await User.findOne({ email: req.params.email });
+
+    console.log("loggedInUser >>>>>>>>>", loggedInUser);
+
+    if (loggedInUser) {
+      if (loggedInUser?.subscriptionEndDate === "") {
+        return res.status(400).json({
+          status: "fail",
+          message: "Your subscription has been expired!",
+        });
+      }
+
+      let fomatted_date = moment(loggedInUser?.subscriptionEndDate).format(
+        "YYYY-MM-DD"
+      );
       let currentDate = moment().startOf("day");
       let start = moment(fomatted_date, "YYYY-MM-DD");
       let end = moment(currentDate, "YYYY-MM-DD");
       let diff = Math.abs(moment.duration(start.diff(end)).asDays());
-      //   console.log("diff", diff);
-      //     if(diff === 0){
 
-      //     }
-      res.status(200).json({ days: diff });
-    });
-    // return res.status(200).send(user);
+      console.log("diff", diff);
+
+      if (diff === 0) {
+        loggedInUser.subscriptionEndDate = "";
+      }
+
+      res.status(200).json({ status: "success", data: { days: diff } });
+    }
+
+    /* User.findOne({ email: req.params.email }).then((user) => {
+      console.log("user >>>>>>>>>", user);
+
+      if (user?.subscriptionEndDate === "") {
+        return res.status(400).json({
+          status: "fail",
+          message: "Your subscription has been expired!",
+        });
+      }
+
+      let fomatted_date = moment(user?.subscriptionEndDate).format(
+        "YYYY-MM-DD"
+      );
+      let currentDate = moment().startOf("day");
+      let start = moment(fomatted_date, "YYYY-MM-DD");
+      let end = moment(currentDate, "YYYY-MM-DD");
+      let diff = Math.abs(moment.duration(start.diff(end)).asDays());
+
+      console.log("diff", diff);
+
+      if (diff === 0) {
+        user["subscriptionEndDate"] = "";
+      }
+
+      res.status(200).json({ status: "success", data: { days: diff } });
+    }); */
   } catch (err) {
     return res.status(500).send({ msg: "Not Found!", err });
   }
@@ -809,6 +1026,9 @@ exports.handleFavourites = async (req, res) => {
 exports.getFavourites = async (req, res) => {
   try {
     const user = await User.findById(req.userId).populate("favourites");
+
+    console.log("getFavourites user >>>>>>>>>>>>>>", user);
+
     return res.status(200).json({
       favourites: user.favourites,
     });
@@ -820,7 +1040,7 @@ exports.getFavourites = async (req, res) => {
 let subscriptionPrice, redirect_url;
 
 exports.payPayment = (req, res) => {
-  // console.log("query >>>>>>>>>>", req.query);
+  console.log("query >>>>>>>>>>", req.query);
 
   subscriptionPrice = req.query.price;
 
@@ -889,6 +1109,46 @@ exports.successPayment = (req, res) => {
       }
     }
   );
+};
+
+exports.availSubscription = async (req, res) => {
+  try {
+    const {
+      email,
+      subscriptionID,
+      subscriptionStartDate,
+      subscriptionEndDate,
+    } = req.body;
+
+    // Validate fields
+    if (
+      !email ||
+      !subscriptionID ||
+      !subscriptionStartDate ||
+      !subscriptionEndDate
+    ) {
+      return res
+        .status(400)
+        .json({ status: "fail", message: "All fields must be filled!" });
+    }
+
+    // Check existing user
+    const existingUser = await User.findOne({ email });
+
+    if (!existingUser) {
+      return res.status(400).json({
+        status: "fail",
+        message: "User not found!",
+      });
+    }
+  } catch (error) {
+    console.error("error >>>>>>>>", error);
+
+    res.status(400).json({
+      status: "fail",
+      message: error,
+    });
+  }
 };
 
 exports.accessCodeForSubscription = async (req, res) => {

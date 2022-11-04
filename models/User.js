@@ -21,7 +21,6 @@ const user = new Schema(
     },
     code: {
       type: String,
-      required: [true, "A user must have a code!"],
     },
     trial: {
       type: Boolean,
@@ -36,6 +35,15 @@ const user = new Schema(
         default: [],
       },
     ],
+    subscriptionID: {
+      type: Schema.Types.ObjectId,
+      ref: "SubscriptionPlan",
+      default: "",
+    },
+    subscriptionEndDate: {
+      type: String,
+      default: "",
+    },
     /* isVerified: {
       type: Boolean,
       default: false,
@@ -43,6 +51,7 @@ const user = new Schema(
   },
   { timestamps: true }
 );
+
 user.plugin(mongoosePaginate);
 
 module.exports = mongoose.model("user", user);
