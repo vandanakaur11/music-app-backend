@@ -15,14 +15,14 @@ const {
   payPayment,
   successPayment,
   findAccount,
-  oneYearPremiumSubscription,
-} = require("../controllers/userController");
-const checkAuth = require("../middlewares/check-auth");
+  extendSubscription,
+} = require("./../controllers/userController");
+const checkAuth = require("./../middlewares/check-auth");
 
 const routes = express.Router();
 
 routes.post("/signup", signUp);
-// routes.patch("/verify/:email", verifyUser);
+// routes.patch("/verify/:email/:hashToken", verifyUser);
 routes.post("/signin", signIn);
 routes.post("/forgot-password", forgotPassword);
 routes.patch("/reset-password/:id", resetPassword);
@@ -36,6 +36,6 @@ routes.get("/getFavourites", checkAuth, getFavourites);
 routes.get("/pay", payPayment);
 routes.get("/success", successPayment);
 routes.get("/find-account/:email", findAccount);
-routes.patch("/premium-code/:email", oneYearPremiumSubscription);
+routes.patch("/extend-subscription/:email", extendSubscription);
 
 module.exports = routes;

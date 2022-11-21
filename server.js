@@ -10,9 +10,7 @@ const app = require("./app");
 
 const runningEnvironment = env.NODE_ENV;
 
-if (runningEnvironment === "development") {
-  app.use(logger("dev"));
-}
+runningEnvironment === "development" && app.use(logger("dev"));
 
 const PORT = env.PORT || 5000;
 

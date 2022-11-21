@@ -1,9 +1,7 @@
-const mongoose = require("mongoose");
+const { Schema, model } = require("mongoose");
 const mongoosePaginate = require("mongoose-paginate-v2");
 
-const Schema = mongoose.Schema;
-
-const user = new Schema(
+const userSchema = new Schema(
   {
     email: {
       type: String,
@@ -21,6 +19,7 @@ const user = new Schema(
     },
     code: {
       type: String,
+      required: [true, "A user must have a code!"],
     },
     trial: {
       type: Boolean,
@@ -28,14 +27,7 @@ const user = new Schema(
     resetPasswordVerificationCode: {
       type: String,
     },
-    favourites: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: "song",
-        default: [],
-      },
-    ],
-    subscriptionID: {
+    subscription: {
       type: Schema.Types.ObjectId,
       ref: "SubscriptionPlan",
       default: "",
@@ -44,6 +36,13 @@ const user = new Schema(
       type: String,
       default: "",
     },
+    favourites: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "song",
+        default: [],
+      },
+    ],
     /* isVerified: {
       type: Boolean,
       default: false,
@@ -52,6 +51,6 @@ const user = new Schema(
   { timestamps: true }
 );
 
-user.plugin(mongoosePaginate);
+userSchema.plugin(mongoosePaginate);
 
-module.exports = mongoose.model("user", user);
+module.exports = model("user", userSchema);

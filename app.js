@@ -5,7 +5,7 @@ const AWS = require("aws-sdk");
 const cron = require("node-cron");
 const moment = require("moment");
 const { env } = require("process");
-const connectDB = require("./db");
+const connectDB = require("./config/db");
 const user = require("./routes/userRoutes");
 const admin = require("./routes/adminRoutes");
 const User = require("./models/User");
@@ -38,6 +38,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:3000",
+      "http://localhost:3001",
       "https://app.ianmulder.us",
       "https://music-app-ten.vercel.app",
       "https://music-app-rho-ruby.vercel.app",

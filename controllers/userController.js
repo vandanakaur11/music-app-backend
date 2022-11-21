@@ -28,19 +28,35 @@ sgMail.setApiKey(env.SENDGRID_API_KEY);
 
 // console.log("env >>>>>>>", env);
 
+const CLIENT_URL =
+  env.NODE_ENV === "development"
+    ? env.CLIENT_LOCAL_URL
+    : env.CLIENT_STAGING_URL;
+
 exports.signUp = async (req, res) => {
   try {
-    const { email, password, subscriptionID, subscriptionEndDate } = req.body;
+    console.log("req.body >>>>>>>>", req.body);
+
+    const { email, password, code } = req.body;
 
     // Validate fields
-    if (!email || !password || !subscriptionID || !subscriptionEndDate) {
+    if (!email || !password || !code) {
       return res
         .status(400)
         .json({ status: "fail", message: "All fields must be filled!" });
     }
 
+    const { error } = singUpValidation.validate(req.body);
+    console.log("error >>>>>>>>>", error);
+
+    if (error)
+      return res
+        .status(400)
+        .json({ status: "fail", message: error.details[0].message });
+
     // Check existing user
     const existingUser = await User.findOne({ email });
+    console.log("existingUser >>>>>>>>>>>", existingUser);
 
     if (existingUser) {
       return res.status(400).json({
@@ -49,120 +65,180 @@ exports.signUp = async (req, res) => {
       });
     }
 
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashPassword = await bcrypt.hash(password, salt);
+    /* const subscriptions = await SubscriptionPlan.find();
+    console.log("subscriptions >>>>>>>>>>>>", subscriptions);
 
-    const newUser = await User.create({
-      email,
-      password: hashPassword,
-      subscriptionID,
-      subscriptionEndDate,
-    });
+    const subscription = subscriptions?.find(
+      (subscription) => subscription.code === code
+    );
 
-    console.log("newUser", newUser);
+    console.log("subscription >>>>>>>>", subscription); */
 
-    newUser &&
-      res.status(201).json({
-        status: "success",
-        message: "User created successfully.",
+    /* console.log(
+      "subscription?.includes(existingUser?.code) >>>>>>>>>>>",
+      subscription?.includes(existingUser?.code)
+    );
+
+    console.log(
+      "!subscription?.includes(existingUser?.code) >>>>>>>>>>>",
+      !subscription?.includes(existingUser?.code)
+    );
+
+    if (subscription?.includes(existingUser?.code)) {
+      return res.status(400).json({
+        status: "fail",
+        message: "Sorry, you are not the owner",
       });
+    } */
 
-    // if (newUser) {
-    //   // const verificationLink = `${env.CLIENT_URL}/verify/${newUser._id}/${newUser.hashToken}`;
+    // console.log(
+    //   "subscription >>>>>>>>>>>>",
+    //   subscription.includes(existingUser.code)
+    // );
 
-    //   // Send mail via sendgrid
+    /* if (existingUser) {
+      return res.status(400).json({
+        status: "fail",
+        message: "Sorry, you are not the owner",
+      });
+    } */
 
-    //   /* const mailDetails = {
-    //     from: env.MAIL_USER, // sender email
-    //     to: email, // receiver email
-    //     subject: "Verification Email - IAN Mulder",
-    //     html: `<h4>Greetings from IAN Mulder,</h4><h4>Below is your one time use verify link:</h4><h4>Click here for verification <a href="${verificationLink}">link</a></h4><h4>Please be aware that this verification link is only valid for 1 day.</h4><h4>Sincerely,</h4><h4>The IAN Mulder Team</h4>`,
-    //   };
+    // Get subscription data by code
+    const subscription = await SubscriptionPlan.findOne({ code });
+    console.log("subscription >>>>>>>>>>>", subscription);
 
-    //   sendMailViaSendGrid(mailDetails); */
+    if (!subscription) {
+      return res.status(400).json({
+        status: "fail",
+        message: "Invalid Subscription Code! Enter Correct One.",
+      });
+    }
 
-    //   // Send mail via nodemailer
-
-    //   // const verificationLink = `<h4>Greetings from IAN Mulder,<h4>This access code for trial: "${env.trialKey}"</h4><h4>Please be aware that this access code is only valid for 1 day.</h4><h4>Sincerely,</h4><h4>The IAN Mulder Team</h4>`;
-    //   // const verificationLink = `<h6>Dear sir/madam,</h6><br /><h6>Congratulations on your sign up to enjoy pianist Ian Mulder’s music albums! We would like to highlight a few features for you:</h6><br /><h6>- Lyrics. Click the “show lyrics” button, when applicable, to follow the lyrics that are being expressed instrumentally.</h6><h6>- Playlist. Save your favorite tracks to your Playlist to listen to them later.</h6><h6>- 20 albums. Enjoy Mulder’s life work and listen to each solo album!</h6><br /><h6>If we can provide you any assistance, please reply to this email.</h6><br /><h6>Yours,</h6><h6>Mulder Music Streaming team</h6>`;
-
-    //   const mailOptions = {
-    //     from: env.MAIL_USER, // sender email
-    //     to: email, // receiver email
-    //     subject: "Verification Email - IAN Mulder",
-    //     html: verificationLink
-    //   };
-
-    //   sendMailViaNodeMailer(mailOptions);
-
-    //   const { email: userEmail } = newUser;
-
-    //   newUser &&
-    //     res.status(201).json({
-    //       status: "success",
-    //       message: "User created successfully.",
-    //       data: {
-    //         email: userEmail,
-    //       },
-    //     });
-    // }
-  } catch (error) {
-    console.log("error >>>>>>>>", error);
-    res.status(400).json({
-      status: "fail",
-      message: error,
-    });
-  }
-
-  /* try {
-    let { email, password, code } = req.body;
+    // add next day base on duration day
+    const endDate = new Date();
+    endDate.setDate(new Date().getDate() + subscription.duration);
+    console.log("endDate >>>>>>>>", endDate.toISOString());
 
     let trial = false;
 
     let user;
 
-    if (code === env.trialKey) {
-      const exist = await User.findOne({ email });
-      if (exist) return res.status(422).send("User Already Exist");
-      const hashedPass = await bcrypt.hash(password, 10);
+    // console.log(
+    //   `code.toLowerCase() === env.trialKey >>>>>>>>>>>`,
+    //   code.toLowerCase() === env.trialKey
+    // );
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashPassword = await bcrypt.hash(password, salt);
+
+    if (code.toLowerCase() === env.trialKey) {
       trial = true;
-      user = { ...req.body, trial, password: hashedPass };
-    } else if (!codes.includes(code)) {
-      return res.status(400).send("Invalid Code: " + code);
-    } else if (codes.includes(code)) {
-      const codeExists = await User.findOne({ $or: [{ email }, { code }] });
-      if (codeExists)
-        return res.status(400).send("Sorry, you are not the owner.");
-      const hashedPass = await bcrypt.hash(password, 10);
-      user = { ...req.body, password: hashedPass };
+
+      user = {
+        email,
+        password: hashPassword,
+        code,
+        trial,
+        subscription: subscription._id,
+        subscriptionEndDate: endDate,
+      };
+    } else {
+      user = {
+        email,
+        password: hashPassword,
+        code,
+        trial,
+        subscription: subscription._id,
+        subscriptionEndDate: endDate,
+      };
     }
+    // } else if (codes.includes(code)) {
+    //   const codeExists = await User.findOne({ $or: [{ email }, { code }] });
 
-    const { error } = singUpValidation.validate(req.body);
-    if (error) return res.status(400).send(error.details[0].message);
+    //   if (codeExists)
+    //     return res.status(400).send("Sorry, you are not the owner.");
 
-    User.create(user, (err, data) => {
-      if (err) return res.status(500).send(err);
-      const token = jwt.sign({ id: data._id }, env.JWT_SECRET_KEY);
-      if (trial) {
-        console.log("data > > > > > > >", data);
-        res.status(201).send({ email, token, expiresIn: 3 });
-      } else {
-        res.status(201).send({ email, token });
-      }
-    });
+    //   user = {
+    //     email,
+    //     password: hashPassword,
+    //     code,
+    //     subscription: subscription._id,
+    //     subscriptionEndDate: endDate,
+    //   };
+    // }
+
+    console.log("user >>>>>>>>>>>", user);
+
+    const newUser = await User.create(user);
+
+    console.log("newUser >>>>>>>>>", newUser);
+
+    newUser &&
+      res
+        .status(201)
+        .json({ status: "success", message: "User created successfully." });
+
+    // User.create(user, (err, data) => {
+    //   if (err) return res.status(400).send(err);
+
+    //   const token = jwt.sign({ id: data._id }, env.JWT_SECRET_KEY);
+
+    //   if (trial) {
+    //     console.log("data > > > > > > >", data);
+
+    //     /* const verificationLink = `${CLIENT_URL}/verify/${data._id}/${data.hashToken}`;
+
+    //     // Send mail via nodemailer
+    //     const verificationMessage = `Greetings from IAN Mulder, Below is your one time use verify link: <br /><br />Click here for verification <a href="${verificationLink}">link</a><br /><br />Please be aware that this verification link is only valid for 1 day.<br />If we can provide you any assistance, please reply to this email.<br />Yours,Mulder Music Streaming team`;
+
+    //     const mailOptions = {
+    //       from: env.WEBMAIL_SMTP_USER, // sender email
+    //       to: email, // receiver email
+    //       subject: "Verification Email - IAN Mulder",
+    //       html: verificationMessage,
+    //     };
+
+    //     sendMailViaNodeMailer(mailOptions); */
+
+    //     res.status(201).send({ email, token, expiresIn: endDate });
+    //   } else {
+    //     console.log("data > > > > > > >", data);
+
+    //     /* const verificationLink = `${CLIENT_URL}/verify/${data._id}/${data.hashToken}`;
+
+    //     // Send mail via nodemailer
+
+    //     // const verificationLink = `<h4>Greetings from IAN Mulder,<h4>This access code for trial: "${env.trialKey}"</h4><h4>Please be aware that this access code is only valid for 1 day.</h4><h4>Sincerely,</h4><h4>The IAN Mulder Team</h4>`;
+    //     const verificationMessage = `Greetings from IAN Mulder, Below is your one time use verify link: Click here for verification <a href="${verificationLink}">link</a>Please be aware that this verification link is only valid for 1 day.<br />If we can provide you any assistance, please reply to this email.<br />Yours,Mulder Music Streaming team`;
+
+    //     const mailOptions = {
+    //       from: env.WEBMAIL_SMTP_USER, // sender email
+    //       to: email, // receiver email
+    //       subject: "Verification Email - IAN Mulder",
+    //       html: verificationMessage,
+    //     };
+
+    //     sendMailViaNodeMailer(mailOptions); */
+
+    //     res.status(201).send({ email, token, expiresIn: 365 });
+    //   }
+    // });
   } catch (err) {
-    console.log("error >>>>>>>>", error);
+    console.log("err >>>>>>>>", err);
+
     res.status(400).json({
       status: "fail",
-      message: error,
+      message: err,
     });
-  } */
+  }
 };
 
 // exports.verifyUser = async (req, res) => {
 //   try {
-//     const { email } = req.params;
+//     console.log("req.params >>>>>>>", req.params);
+
+//     const { email, hashToken } = req.params;
 
 //     // Check user exist or not
 //     const existingUser = await User.findOne({ email });
@@ -180,40 +256,24 @@ exports.signUp = async (req, res) => {
 //       });
 //     }
 
-//     const { code } = req.body;
-
-//     if (!code) {
-//       return res
-//         .status(400)
-//         .json({ status: "fail", message: "Code field must be filled!" });
-//     }
-
-//     if (code !== existingUser.code) {
+//     if (hashToken !== existingUser.hashToken) {
 //       return res.status(400).json({
 //         status: "fail",
-//         message: `Invalid ${code}! Check your email`,
+//         message: `Invalid link! Check your email`,
 //       });
 //     }
 
-//     /* const verifiedUser = await User.updateOne(
-//       { email },
-//       { $set: { trial: "yes", isVerified: true } },
-//       { new: true }
-//     ); */
-
 //     const verifiedUser = await User.updateOne(
 //       { email },
-//       { $set: { trial: "yes" } },
-//       { new: true }
+//       { $set: { hashToken: "", isVerified: true } },
+//       { new: true, runValidators: true }
 //     );
 
 //     if (verifiedUser) {
-//       const successMessage = `<h4>Your account verified successfully... Now <a href="${env.CLIENT_URL}/auth/login">Login</a> your account</h4><h4>Regards,</h4><h4>IAN Mulder Team</h4>`;
-
 //       // Send mail via sendgrid
 
 //       /* const mailDetails = {
-//         from: env.USER_EMAIL, // sender email
+//         from: env.WEBMAIL_SMTP_USER, // sender email
 //         to: existingUser.email, // receiver email
 //         subject: "Verified Account - IAN Mulder",
 //         html: successMessage,
@@ -223,8 +283,10 @@ exports.signUp = async (req, res) => {
 
 //       // Send mail via nodemailer
 
+//       const successMessage = `Dear sir/madam,<br />Congratulations on your sign up to enjoy pianist Ian Mulder’s music albums! We would like to highlight a few features for you:<br />- Lyrics. Click the “show lyrics” button, when applicable, to follow the lyrics that are being expressed instrumentally.- Playlist. Save your favorite tracks to your Playlist to listen to them later.- 20 albums. Enjoy Mulder’s life work and listen to each solo album!<br />If we can provide you any assistance, please reply to this email.<br />Yours,Mulder Music Streaming team`;
+
 //       const mailOptions = {
-//         from: env.USER_EMAIL, // sender email
+//         from: env.WEBMAIL_SMTP_USER, // sender email
 //         to: existingUser.email, // receiver email
 //         subject: "Verified Account - IAN Mulder",
 //         html: successMessage,
@@ -249,6 +311,312 @@ exports.signUp = async (req, res) => {
 //   }
 // };
 
+// exports.signIn = async (req, res) => {
+//   try {
+//     const { email, password } = req.body;
+
+//     // Validate fields
+//     if (!email || !password) {
+//       return res
+//         .status(400)
+//         .json({ status: "fail", message: "All fields must be filled!" });
+//     }
+
+//     // Check existing user
+//     const existingUser = await User.findOne({ email })
+//       .select("-createdAt -updatedAt -__v")
+//       .populate("subscription", "-price -createdAt -updatedAt -__v");
+
+//     console.log("existingUser >>>>>>>>>>>>", existingUser);
+
+//     if (!existingUser) {
+//       return res.status(400).json({
+//         status: "fail",
+//         message: "User not found!",
+//       });
+//     }
+
+//     // Verify Password
+//     const verifyPassword = await bcrypt.compare(
+//       password,
+//       existingUser.password
+//     );
+
+//     // console.log("userDetail >>>>>>>>", userDetail);
+
+//     console.log("verifyPassword >>>>>>>>", verifyPassword);
+
+//     if (!verifyPassword) {
+//       return res.status(400).json({
+//         status: "fail",
+//         message: "Incorrect Password!",
+//       });
+//     }
+
+//     console.log(
+//       "codes.includes(existingUser.code) >>>>>>>>>>>>>>",
+//       codes.includes(existingUser.code)
+//     );
+
+//     console.log(
+//       "!codes.includes(existingUser.code) >>>>>>>>>>>>>>",
+//       !codes.includes(existingUser.code)
+//     );
+
+//     console.log("existingUser.code >>>>>>>>>>>>>>", existingUser.code);
+
+//     console.log(
+//       "existingUser.code === env.trialKey >>>>>>>>>>>>>>",
+//       existingUser.code === env.trialKey
+//     );
+
+//     console.log(
+//       "existingUser.trial === false >>>>>>>>>>>>>>",
+//       existingUser.trial === false
+//     );
+
+//     console.log(
+//       "existingUser.code === env.trialKey && existingUser.trial === false >>>>>>>>>>>>>>",
+//       existingUser.code === env.trialKey && existingUser.trial === false
+//     );
+
+//     console.log(
+//       "existingUser.trial === true >>>>>>>>>>>>>>",
+//       existingUser.trial === true
+//     );
+
+//     if (existingUser.code === undefined) {
+//       console.log("existingUser >>>>>>>>>>>>>>>", existingUser);
+
+//       const { favourites, subscriptionEndDate, _id, email, subscription } =
+//         existingUser;
+
+//       const token = jwt.sign({ id: _id }, env.JWT_SECRET_KEY);
+
+//       const userFilteredData = Object.assign({
+//         favourites,
+//         subscriptionEndDate,
+//         _id,
+//         email,
+//         subscription,
+//       });
+
+//       console.log("userFilteredData >>>>>>>>>>>>>", userFilteredData);
+
+//       res
+//         .status(200)
+//         .json({ status: "success", data: { user: userFilteredData }, token });
+//     } else {
+//       if (!codes.includes(existingUser.code)) {
+//         // return res.status(401).send("Sorry, you are not the owner.");
+
+//         const { error } = singInValidation.validate(req.body);
+
+//         if (error) return res.status(400).send(error.details[0].message);
+
+//         if (existingUser.code === "ldtrial" && existingUser.trial === false) {
+//           return res.status(401).json({
+//             status: "fail",
+//             message: "Your Trial Period has expired!",
+//           });
+//         } else if (
+//           existingUser.code === env.trialKey &&
+//           existingUser.trial === true
+//         ) {
+//           const token = jwt.sign({ id: existingUser._id }, env.JWT_SECRET_KEY);
+
+//           let createdAt = moment(existingUser.createdAt).format("YYYY-MM-DD");
+//           let current_date = moment().format("YYYY-MM-DD");
+
+//           let diff = Math.abs(
+//             createdAt.split("-")[2] - current_date.split("-")[2]
+//           );
+
+//           let expiresIn = 3 - diff;
+//           const user = { email, token, expiresIn };
+
+//           res.status(200).send(user);
+//         }
+//       } else {
+//         const token = jwt.sign({ id: existingUser._id }, env.JWT_SECRET_KEY);
+
+//         const user = {
+//           email,
+//           token,
+//           data: {
+//             user: { email, subscriptionID: "635bd8fdcb397b3a044d9867" },
+//           },
+//         };
+
+//         res.status(200).send(user);
+//       }
+
+//       // const userDetail = await User.findOne({ email }).select(
+//       //   "-password -isVerified -createdAt -updatedAt -__v"
+//       // );
+
+//       // console.log("userDetail>>>>>>>>>>>>", userDetail);
+
+//       // if (userDetail && userDetail.code) {
+//       //   if (!codes.includes(userDetail.code))
+//       //     return res.status(401).send("Sorry, you are not the owner.");
+
+//       //   const { error } = singUpValidation.validate(req.body);
+
+//       //   if (error) return res.status(400).send(error.details[0].message);
+
+//       //   if (userDetail.code === env.trialKey) {
+//       //     if (userDetail.trial === "no") {
+//       //       return res.status(401).send("Your Trial Period has expired!");
+//       //     } else if (userDetail.trial === "yes") {
+//       //       // const validPass = await bcrypt.compare(password, userDetail.password);
+//       //       // if (!validPass) return res.status(401).send("Incorrect Password");
+
+//       //       const token = jwt.sign({ id: userDetail._id }, env.JWT_SECRET_KEY);
+
+//       //       let createdAt = moment(userDetail.createdAt).format("YYYY-MM-DD");
+//       //       let current_date = moment().format("YYYY-MM-DD");
+
+//       //       let diff = Math.abs(
+//       //         createdAt.split("-")[2] - current_date.split("-")[2]
+//       //       );
+
+//       //       let expiresIn = 3 - diff;
+//       //       const user = { email, token, expiresIn };
+
+//       //       return res.status(200).send(user);
+//       //     }
+//       //   } else if (codes.includes(userDetail.code)) {
+//       //     const validPass = await bcrypt.compare(password, exist.password);
+//       //     if (!validPass) return res.status(401).send("Incorrect Password");
+
+//       //     const token = jwt.sign({ id: userDetail._id }, env.JWT_SECRET_KEY);
+
+//       //     const user = { email, token };
+
+//       //     return res.status(200).send(user);
+//       //   } else {
+//       //     return res.status(422).send("Sorry, you are not the owner.");
+//       //   }
+
+//       //   // } else {
+//       //   // const { error } = singInValidation.validate(req.body);
+//       //   // if (error) return res.status(400).send(error.details[0].message);
+//       //   // if (userDetail.code === env.trialKey) {
+//       //   //   if (userDetail.trial === "no") {
+//       //   //     return res.status(401).send("Your Trial Period has expired!");
+//       //   //   } else if (userDetail.trial === "yes") {
+//       //   //     const validPass = await bcrypt.compare(password, userDetail.password);
+//       //   //     if (!validPass) return res.status(401).send("Incorrect Password");
+//       //   //     const token = jwt.sign({ id: userDetail._id }, env.JWT_SECRET_KEY);
+//       //   //     let createdAt = moment(userDetail.createdAt).format("YYYY-MM-DD");
+//       //   //     let current_date = moment().format("YYYY-MM-DD");
+//       //   //     let diff = Math.abs(
+//       //   //       createdAt.split("-")[2] - current_date.split("-")[2]
+//       //   //     );
+//       //   //     let expiresIn = 3 - diff;
+//       //   //     const user = { email, token, expiresIn };
+//       //   //     return res.status(200).send(user);
+//       //   //   }
+//       //   // } else if (codes.includes(userDetail.code)) {
+//       //   //   const validPass = await bcrypt.compare(password, exist.password);
+//       //   //   if (!validPass) return res.status(401).send("Incorrect Password");
+//       //   //   const token = jwt.sign({ id: userDetail._id }, env.JWT_SECRET_KEY);
+//       //   //   const user = { email, token };
+//       //   //   return res.status(200).send(user);
+//       //   // } else {
+//       //   //   return res.status(422).send("Sorry, you are not the owner.");
+//       //   // }
+//       // }
+
+//       // res.status(200).json({
+//       //   status: "success",
+//       //   data: { user: userDetail, token: generateToken(email) },
+//       // });
+//     }
+//   } catch (err) {
+//     console.log("err >>>>>>>>", err);
+
+//     res.status(400).json({
+//       status: "fail",
+//       message: err,
+//     });
+//   }
+
+//   /* const { password, email, code } = req.body;
+
+//   if (code) {
+//     if (!codes.includes(code))
+//       return res.status(401).send("Sorry, you are not the owner.");
+
+//     const { error } = singUpValidation.validate(req.body);
+//     if (error) return res.status(400).send(error.details[0].message);
+
+//     const exist = await User.findOne({ email: email }, { code: code });
+
+//     if (exist) {
+//       // console.log("Exists");
+//       const hashedPass = await bcrypt.hash(password, 10);
+//       const update = await User.findOneAndUpdate(
+//         { email: email, code: code },
+//         { password: hashedPass }
+//       );
+
+//       console.log("update > > > > > > >", update);
+
+//       if (update) return res.status(200).send("Password Changed!");
+//     } else {
+//       return res.status(422).send("Sorry, you are not the owner.");
+//     }
+//   } else {
+//     delete req.body.code;
+
+//     const { error } = singInValidation.validate(req.body);
+//     if (error) return res.status(400).send(error.details[0].message);
+
+//     const exist = await User.findOne({ email });
+//     console.log("exist > > > > > > >", exist);
+
+//     if (exist) {
+//       if (exist.code === env.trialKey) {
+//         if (!exist.trial) {
+//           return res.status(401).send("Your Trial Period has expired!");
+//         } else {
+//           const validPass = await bcrypt.compare(password, exist.password);
+//           if (!validPass) return res.status(401).send("Incorrect Password");
+
+//           const token = jwt.sign({ id: exist._id }, env.JWT_SECRET_KEY);
+//           let createdAt = moment(exist.createdAt).format("YYYY-MM-DD");
+//           let current_date = moment().format("YYYY-MM-DD");
+
+//           let diff = Math.abs(
+//             createdAt.split("-")[2] - current_date.split("-")[2]
+//           );
+
+//           let expiresIn = 3 - diff;
+//           const user = { email, token, expiresIn };
+
+//           return res.status(200).send(user);
+//         }
+//       } else if (codes.includes(exist.code)) {
+//         const validPass = await bcrypt.compare(password, exist.password);
+
+//         if (!validPass) return res.status(401).send("Incorrect Password");
+
+//         const token = jwt.sign({ id: exist._id }, env.JWT_SECRET_KEY);
+
+//         const user = { email, token };
+
+//         return res.status(200).send(user);
+//       } else {
+//         return res.status(422).send("Sorry, you are not the owner.");
+//       }
+//     } else {
+//       return res.status(401).send("User not found!");
+//     }
+//   } */
+// };
+
 exports.signIn = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -261,7 +629,11 @@ exports.signIn = async (req, res) => {
     }
 
     // Check existing user
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email })
+      .select("-createdAt -updatedAt -__v")
+      .populate("subscription", "-price -createdAt -updatedAt -__v");
+
+    console.log("existingUser >>>>>>>>>>>>", existingUser);
 
     if (!existingUser) {
       return res.status(400).json({
@@ -270,46 +642,11 @@ exports.signIn = async (req, res) => {
       });
     }
 
-    // Check user verified or not
-    // if (!existingUser.isVerified) {
-    //   // const verificationLink = `${env.CLIENT_URL}/verify/${existingUser._id}/${existingUser.hashToken}`;
-
-    //   // Send mail via sendgrid
-
-    //   /* const mailDetails = {
-    //     from: env.USER_EMAIL, // sender email
-    //     to: email, // receiver email
-    //     subject: "Verification Email - IAN Mulder",
-    //     html: `<h4>Greetings from IAN Mulder,</h4><h4>Below is your one time use verify link:</h4><h4>Click here for verification <a href="${verificationLink}">link</a></h4><h4>Please be aware that this verification link is only valid for 1 day.</h4><h4>Sincerely,</h4><h4>The IAN Mulder Team</h4>`,
-    //   };
-
-    //   sendMailViaSendGrid(mailDetails); */
-
-    //   // Send mail via nodemailer
-
-    //   const mailOptions = {
-    //     from: env.MAIL_USER, // sender email
-    //     to: email, // receiver email
-    //     subject: "Verification Email - IAN Mulder",
-    //     html: `<h4>Greetings from IAN Mulder,<h4>This access code for trial: "${env.trialKey}"</h4><h4>Please be aware that this access code is only valid for 1 day.</h4><h4>Sincerely,</h4><h4>The IAN Mulder Team</h4>`,
-    //   };
-
-    //   sendMailViaNodeMailer(mailOptions);
-
-    //   return res.status(400).json({
-    //     status: "fail",
-    //     message:
-    //       "Your account not verified!. Check your email for verification.",
-    //   });
-    // }
-
     // Verify Password
     const verifyPassword = await bcrypt.compare(
       password,
-      existingUser.password
+      existingUser?.password
     );
-
-    // console.log("userDetail >>>>>>>>", userDetail);
 
     console.log("verifyPassword >>>>>>>>", verifyPassword);
 
@@ -320,189 +657,41 @@ exports.signIn = async (req, res) => {
       });
     }
 
-    console.log("existingUser >>>>>>>>>>>>", existingUser);
+    const { error } = singInValidation.validate(req.body);
+    console.log("error >>>>>>>>>", error);
+    if (error) return res.status(400).send(error.details[0].message);
 
-    console.log(
-      "codes.includes(existingUser.code) >>>>>>>>>>>>>>",
-      codes.includes(existingUser.code)
-    );
+    // if (
+    //   existingUser?.code?.toLowerCase() === env.trialKey &&
+    //   existingUser?.trial === false
+    // ) {
 
-    console.log(
-      "!codes.includes(existingUser.code) >>>>>>>>>>>>>>",
-      !codes.includes(existingUser.code)
-    );
+    // console.log(
+    //   "existingUser?.subscription?._id >>>>>>>>>",
+    //   existingUser?.subscription?._id
+    // );
 
-    console.log("existingUser.code >>>>>>>>>>>>>>", existingUser.code);
-
-    console.log(
-      "existingUser.code === env.trialKey >>>>>>>>>>>>>>",
-      existingUser.code === env.trialKey
-    );
-
-    console.log(
-      "existingUser.trial === false >>>>>>>>>>>>>>",
-      existingUser.trial === false
-    );
-
-    console.log(
-      "existingUser.code === env.trialKey && existingUser.trial === false >>>>>>>>>>>>>>",
-      existingUser.code === env.trialKey && existingUser.trial === false
-    );
-
-    console.log(
-      "existingUser.trial === true >>>>>>>>>>>>>>",
-      existingUser.trial === true
-    );
-
-    if (existingUser.code === undefined) {
-      console.log("existingUser >>>>>>>>>>>>>>>", existingUser);
-
-      const { favourites, subscriptionEndDate, _id, email, subscriptionID } =
-        existingUser;
-
-      const token = jwt.sign({ id: _id }, env.JWT_SECRET_KEY);
-
-      const userFilteredData = Object.assign({
-        favourites,
-        subscriptionEndDate,
-        _id,
-        email,
-        subscriptionID,
+    if (
+      existingUser?.trial === false &&
+      existingUser?.subscription?._id !== ""
+    ) {
+      return res.status(400).json({
+        status: "fail",
+        message: "Your trial period has been expired!",
+        data: {
+          user: existingUser?.email,
+        },
       });
-
-      console.log("userFilteredData >>>>>>>>>>>>>", userFilteredData);
-
-      res
-        .status(200)
-        .json({ status: "success", data: { user: userFilteredData }, token });
     } else {
-      if (!codes.includes(existingUser.code)) {
-        // return res.status(401).send("Sorry, you are not the owner.");
+      const token = jwt.sign({ id: existingUser?._id }, env.JWT_SECRET_KEY);
+      const user = {
+        email,
+        token,
+        subscriptionID: existingUser?.subscription?._id,
+        trial: existingUser?.trial,
+      };
 
-        const { error } = singInValidation.validate(req.body);
-
-        if (error) return res.status(400).send(error.details[0].message);
-
-        if (
-          existingUser.code === env.trialKey &&
-          existingUser.trial === false
-        ) {
-          return res.status(401).json({
-            status: "fail",
-            message: "Your Trial Period has expired!",
-          });
-        } else if (
-          existingUser.code === env.trialKey &&
-          existingUser.trial === true
-        ) {
-          const token = jwt.sign({ id: existingUser._id }, env.JWT_SECRET_KEY);
-
-          let createdAt = moment(existingUser.createdAt).format("YYYY-MM-DD");
-          let current_date = moment().format("YYYY-MM-DD");
-
-          let diff = Math.abs(
-            createdAt.split("-")[2] - current_date.split("-")[2]
-          );
-
-          let expiresIn = 3 - diff;
-          const user = { email, token, expiresIn };
-
-          res.status(200).send(user);
-        }
-      } else {
-        const token = jwt.sign({ id: existingUser._id }, env.JWT_SECRET_KEY);
-        const user = {
-          email,
-          token,
-          data: {
-            user: { email, subscriptionID: "635bd8fdcb397b3a044d9867" },
-          },
-        };
-        res.status(200).send(user);
-      }
-
-      // const userDetail = await User.findOne({ email }).select(
-      //   "-password -isVerified -createdAt -updatedAt -__v"
-      // );
-
-      // console.log("userDetail>>>>>>>>>>>>", userDetail);
-
-      // if (userDetail && userDetail.code) {
-      //   if (!codes.includes(userDetail.code))
-      //     return res.status(401).send("Sorry, you are not the owner.");
-
-      //   const { error } = singUpValidation.validate(req.body);
-
-      //   if (error) return res.status(400).send(error.details[0].message);
-
-      //   if (userDetail.code === env.trialKey) {
-      //     if (userDetail.trial === "no") {
-      //       return res.status(401).send("Your Trial Period has expired!");
-      //     } else if (userDetail.trial === "yes") {
-      //       // const validPass = await bcrypt.compare(password, userDetail.password);
-      //       // if (!validPass) return res.status(401).send("Incorrect Password");
-
-      //       const token = jwt.sign({ id: userDetail._id }, env.JWT_SECRET_KEY);
-
-      //       let createdAt = moment(userDetail.createdAt).format("YYYY-MM-DD");
-      //       let current_date = moment().format("YYYY-MM-DD");
-
-      //       let diff = Math.abs(
-      //         createdAt.split("-")[2] - current_date.split("-")[2]
-      //       );
-
-      //       let expiresIn = 3 - diff;
-      //       const user = { email, token, expiresIn };
-
-      //       return res.status(200).send(user);
-      //     }
-      //   } else if (codes.includes(userDetail.code)) {
-      //     const validPass = await bcrypt.compare(password, exist.password);
-      //     if (!validPass) return res.status(401).send("Incorrect Password");
-
-      //     const token = jwt.sign({ id: userDetail._id }, env.JWT_SECRET_KEY);
-
-      //     const user = { email, token };
-
-      //     return res.status(200).send(user);
-      //   } else {
-      //     return res.status(422).send("Sorry, you are not the owner.");
-      //   }
-
-      //   // } else {
-      //   // const { error } = singInValidation.validate(req.body);
-      //   // if (error) return res.status(400).send(error.details[0].message);
-      //   // if (userDetail.code === env.trialKey) {
-      //   //   if (userDetail.trial === "no") {
-      //   //     return res.status(401).send("Your Trial Period has expired!");
-      //   //   } else if (userDetail.trial === "yes") {
-      //   //     const validPass = await bcrypt.compare(password, userDetail.password);
-      //   //     if (!validPass) return res.status(401).send("Incorrect Password");
-      //   //     const token = jwt.sign({ id: userDetail._id }, env.JWT_SECRET_KEY);
-      //   //     let createdAt = moment(userDetail.createdAt).format("YYYY-MM-DD");
-      //   //     let current_date = moment().format("YYYY-MM-DD");
-      //   //     let diff = Math.abs(
-      //   //       createdAt.split("-")[2] - current_date.split("-")[2]
-      //   //     );
-      //   //     let expiresIn = 3 - diff;
-      //   //     const user = { email, token, expiresIn };
-      //   //     return res.status(200).send(user);
-      //   //   }
-      //   // } else if (codes.includes(userDetail.code)) {
-      //   //   const validPass = await bcrypt.compare(password, exist.password);
-      //   //   if (!validPass) return res.status(401).send("Incorrect Password");
-      //   //   const token = jwt.sign({ id: userDetail._id }, env.JWT_SECRET_KEY);
-      //   //   const user = { email, token };
-      //   //   return res.status(200).send(user);
-      //   // } else {
-      //   //   return res.status(422).send("Sorry, you are not the owner.");
-      //   // }
-      // }
-
-      // res.status(200).json({
-      //   status: "success",
-      //   data: { user: userDetail, token: generateToken(email) },
-      // });
+      res.status(200).json({ status: "success", data: { user } });
     }
   } catch (err) {
     console.log("err >>>>>>>>", err);
@@ -512,79 +701,6 @@ exports.signIn = async (req, res) => {
       message: err,
     });
   }
-
-  /* const { password, email, code } = req.body;
-
-  if (code) {
-    if (!codes.includes(code))
-      return res.status(401).send("Sorry, you are not the owner.");
-
-    const { error } = singUpValidation.validate(req.body);
-    if (error) return res.status(400).send(error.details[0].message);
-
-    const exist = await User.findOne({ email: email }, { code: code });
-
-    if (exist) {
-      // console.log("Exists");
-      const hashedPass = await bcrypt.hash(password, 10);
-      const update = await User.findOneAndUpdate(
-        { email: email, code: code },
-        { password: hashedPass }
-      );
-
-      console.log("update > > > > > > >", update);
-
-      if (update) return res.status(200).send("Password Changed!");
-    } else {
-      return res.status(422).send("Sorry, you are not the owner.");
-    }
-  } else {
-    delete req.body.code;
-
-    const { error } = singInValidation.validate(req.body);
-    if (error) return res.status(400).send(error.details[0].message);
-
-    const exist = await User.findOne({ email });
-    console.log("exist > > > > > > >", exist);
-
-    if (exist) {
-      if (exist.code === env.trialKey) {
-        if (!exist.trial) {
-          return res.status(401).send("Your Trial Period has expired!");
-        } else {
-          const validPass = await bcrypt.compare(password, exist.password);
-          if (!validPass) return res.status(401).send("Incorrect Password");
-
-          const token = jwt.sign({ id: exist._id }, env.JWT_SECRET_KEY);
-          let createdAt = moment(exist.createdAt).format("YYYY-MM-DD");
-          let current_date = moment().format("YYYY-MM-DD");
-
-          let diff = Math.abs(
-            createdAt.split("-")[2] - current_date.split("-")[2]
-          );
-
-          let expiresIn = 3 - diff;
-          const user = { email, token, expiresIn };
-
-          return res.status(200).send(user);
-        }
-      } else if (codes.includes(exist.code)) {
-        const validPass = await bcrypt.compare(password, exist.password);
-
-        if (!validPass) return res.status(401).send("Incorrect Password");
-
-        const token = jwt.sign({ id: exist._id }, env.JWT_SECRET_KEY);
-
-        const user = { email, token };
-
-        return res.status(200).send(user);
-      } else {
-        return res.status(422).send("Sorry, you are not the owner.");
-      }
-    } else {
-      return res.status(401).send("User not found!");
-    }
-  } */
 };
 
 exports.findAccount = async (req, res) => {
@@ -616,7 +732,7 @@ exports.findAccount = async (req, res) => {
   }
 };
 
-exports.oneYearPremiumSubscription = async (req, res) => {
+exports.extendSubscription = async (req, res) => {
   try {
     const { email } = req.params;
 
@@ -630,7 +746,7 @@ exports.oneYearPremiumSubscription = async (req, res) => {
       });
     }
 
-    const { code, subscriptionID, subscriptionEndDate } = req.body;
+    const { code } = req.body;
 
     // Validate fields
     if (!code) {
@@ -639,35 +755,52 @@ exports.oneYearPremiumSubscription = async (req, res) => {
         .json({ status: "fail", message: "Code field must be filled!" });
     }
 
-    if (!codes.includes(code)) {
+    // Get all subscription data
+    const subscriptions = await SubscriptionPlan.find();
+    console.log("subscriptions >>>>>>>>>>>", subscriptions);
+
+    const subscriptionCodes = subscriptions?.map(
+      (subscription) => subscription.code
+    );
+    console.log("subscriptionCodes >>>>>>>>>>", subscriptionCodes);
+
+    if (!subscriptionCodes.includes(code)) {
       return res.status(400).json({
         status: "success",
-        message: "Invalid Premium Code!, Enter Correct One.",
+        message: "Invalid Subscription Code! Enter Correct One.",
       });
     }
 
-    if (codes.includes(code)) {
-      const updatedSubscription = await User.updateOne(
-        { email },
-        {
-          $set: {
-            code,
-            subscriptionID,
-            subscriptionEndDate,
-          },
-        },
-        { new: true, runValidators: true }
-      );
+    // Get subscription data by code
+    const subscription = subscriptions.find(
+      (subscription) => subscription.code === code
+    );
+    console.log("subscription >>>>>>>>>>>", subscription);
 
-      updatedSubscription &&
-        res.status(200).json({
-          status: "success",
-          message:
-            "Your subscription has been upgraded successfully for one year...",
-        });
-    }
+    // add next day base on duration day
+    const endDate = new Date();
+    endDate.setDate(new Date().getDate() + subscription.duration);
+    console.log("endDate >>>>>>>>", endDate.toISOString());
+
+    const updatedSubscription = await User.updateOne(
+      { email },
+      {
+        $set: {
+          code,
+          subscription: subscription._id,
+          subscriptionEndDate: endDate,
+        },
+      },
+      { new: true, runValidators: true }
+    );
+
+    updatedSubscription &&
+      res.status(200).json({
+        status: "success",
+        message: `Your subscription has been upgraded successfully...`,
+      });
   } catch (err) {
-    console.error("oneYearPremiumSubscription err", err);
+    console.error("extendSubscriptionForOneYear err", err);
   }
 };
 
@@ -725,12 +858,12 @@ exports.forgotPassword = async (req, res) => {
 
     if (updateCode) {
       // const forgotPassword = `<h4>Greetings from IAN Mulder,</h4><h4>Below is your one time use code:</h4><h4>${resetPasswordCode}</h4><h4>Please be aware that this code is only valid for one hour.</h4><h4>Sincerely,</h4><h4>The IAN Mulder Team</h4>`;
-      const forgotPassword = `<h6>Dear sir/madam</h6>,<br /><br /><h6>The verification code to reset your password is below. It is valid for 1 hour. You can copy and paste this verification code on the <q><b>forgot password</b></q> page now and set your new password.</h6><br /><h6>Code: <b>${resetPasswordCode}</b></h6><br /><h6>If we can provide you any assistance, please reply to this email.</h6><br /><h6>Yours,</h6><h6>Mulder Music Streaming team</h6>`;
+      const forgotPassword = `Dear sir/madam,<br /><br />The verification code to reset your password is below. It is valid for 1 hour. You can copy and paste this verification code on the <q><b>forgot password</b></q> page now and set your new password.<br />Code: <b>${resetPasswordCode}</b><br />If we can provide you any assistance, please reply to this email.<br />Yours,Mulder Music Streaming team`;
 
       // Send mail via sendgrid
 
       /* const mailDetails = {
-        from: env.USER_EMAIL, // sender email
+        from: env.WEBMAIL_SMTP_USER, // sender email
         to: email, // receiver email
         subject: "Forgot Password Verification Code - IAN Mulder",
         html: forgotPassword,
@@ -740,7 +873,7 @@ exports.forgotPassword = async (req, res) => {
       // Send mail via nodemailer
 
       const mailOptions = {
-        from: env.USER_EMAIL, // sender email
+        from: env.WEBMAIL_SMTP_USER, // sender email
         to: email, // receiver email
         subject: "Forgot Password Verification Code - IAN Mulder",
         html: forgotPassword,
@@ -840,10 +973,16 @@ exports.getExpiringDays = async (req, res) => {
     console.log("loggedInUser >>>>>>>>>", loggedInUser);
 
     if (loggedInUser) {
-      if (loggedInUser?.subscriptionEndDate === "") {
+      if (
+        loggedInUser?.trial === false &&
+        loggedInUser?.subscriptionEndDate === ""
+      ) {
         return res.status(400).json({
           status: "fail",
-          message: "Your subscription has been expired!",
+          message: "Your trial period has been expired!",
+          data: {
+            user: loggedInUser?.email,
+          },
         });
       }
 
@@ -855,9 +994,10 @@ exports.getExpiringDays = async (req, res) => {
       let end = moment(currentDate, "YYYY-MM-DD");
       let diff = Math.abs(moment.duration(start.diff(end)).asDays());
 
-      console.log("diff", diff);
+      console.log("diff >>>>>>>>>>>>>", diff);
 
       if (diff === 0) {
+        loggedInUser.trial = false;
         loggedInUser.subscriptionEndDate = "";
       }
 
@@ -1050,8 +1190,8 @@ exports.payPayment = (req, res) => {
       payment_method: "paypal",
     },
     redirect_urls: {
-      return_url: `${env.CLIENT_URL}/payment_success`,
-      cancel_url: `${env.CLIENT_URL}/cancel`,
+      return_url: `${CLIENT_URL}/payment_success`,
+      cancel_url: `${CLIENT_URL}/cancel`,
     },
     transactions: [
       {
@@ -1186,12 +1326,22 @@ const sendMailViaSendGrid = async (mailDetails) => {
   }
 };
 
+/* console.log("SMTP Info >>>>>>>>>>>>", {
+  WEBMAIL_SMTP_HOST: env.WEBMAIL_SMTP_HOST,
+  WEBMAIL_SMTP_PORT: Number(env.WEBMAIL_SMTP_PORT),
+  WEBMAIL_SMTP_SECURE: Boolean(env.WEBMAIL_SMTP_SECURE),
+  WEBMAIL_SMTP_USER: env.WEBMAIL_SMTP_USER,
+  WEBMAIL_SMTP_PASS: env.WEBMAIL_SMTP_PASS,
+}); */
+
 const sendMailViaNodeMailer = (mailOptions) => {
   const transporter = nodemailer.createTransport({
-    service: "gmail",
+    host: env.WEBMAIL_SMTP_HOST,
+    port: env.WEBMAIL_SMTP_PORT,
+    secure: env.WEBMAIL_SMTP_SECURE, // true for 465, false for other ports
     auth: {
-      user: env.USER_EMAIL,
-      pass: env.USER_PASS,
+      user: env.WEBMAIL_SMTP_USER,
+      pass: env.WEBMAIL_SMTP_PASS,
     },
   });
 
@@ -1205,6 +1355,8 @@ const sendMailViaNodeMailer = (mailOptions) => {
   });
 };
 
-// const generateToken = (email, expiresIn) => {
-//   return jwt.sign({ email }, env.JWT_SECRET_KEY, { expiresIn });
-// };
+const generateToken = (email) => {
+  return jwt.sign({ email }, env.JWT_SECRET_KEY, {
+    expiresIn: "1h", // expires in 1h
+  });
+};

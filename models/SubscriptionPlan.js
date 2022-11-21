@@ -4,6 +4,7 @@ const subscriptionPlanSchema = new Schema(
   {
     code: {
       type: String,
+      unique: [true, "A subscription plan must have unique code!"],
       required: [true, "A subscription plan must have a code!"],
     },
     duration: {
