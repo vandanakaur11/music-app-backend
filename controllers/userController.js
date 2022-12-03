@@ -119,40 +119,41 @@ exports.signUp = async (req, res) => {
     endDate.setDate(new Date().getDate() + subscription.duration);
     console.log("endDate >>>>>>>>", endDate.toISOString());
 
-    let trial = false;
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashPassword = await bcrypt.hash(password, salt);
 
-    let user;
+    // let trial;
+
+    // let user;
 
     // console.log(
     //   `code.toLowerCase() === env.trialKey >>>>>>>>>>>`,
     //   code.toLowerCase() === env.trialKey
     // );
 
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashPassword = await bcrypt.hash(password, salt);
+    // if (code.toLowerCase() === env.trialKey) {
+    //   trial = true;
 
-    if (code.toLowerCase() === env.trialKey) {
-      trial = true;
+    //   user = {
+    //     email,
+    //     password: hashPassword,
+    //     code,
+    //     trial,
+    //     subscription: subscription._id,
+    //     subscriptionEndDate: endDate,
+    //   };
+    // } else {
+    //   user = {
+    //     email,
+    //     password: hashPassword,
+    //     code,
+    //     trial,
+    //     subscription: subscription._id,
+    //     subscriptionEndDate: endDate,
+    //   };
+    // }
 
-      user = {
-        email,
-        password: hashPassword,
-        code,
-        trial,
-        subscription: subscription._id,
-        subscriptionEndDate: endDate,
-      };
-    } else {
-      user = {
-        email,
-        password: hashPassword,
-        code,
-        trial,
-        subscription: subscription._id,
-        subscriptionEndDate: endDate,
-      };
-    }
     // } else if (codes.includes(code)) {
     //   const codeExists = await User.findOne({ $or: [{ email }, { code }] });
 
@@ -168,9 +169,14 @@ exports.signUp = async (req, res) => {
     //   };
     // }
 
-    console.log("user >>>>>>>>>>>", user);
-
-    const newUser = await User.create(user);
+    const newUser = await User.create({
+      email,
+      password: hashPassword,
+      code,
+      trial: true,
+      subscription: subscription._id,
+      subscriptionEndDate: endDate,
+    });
 
     console.log("newUser >>>>>>>>>", newUser);
 
