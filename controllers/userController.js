@@ -23,8 +23,6 @@ paypal.configure({
   client_secret: env.PAYPAL_CLIENT_SECRET,
 });
 
-sgMail.setApiKey(env.SENDGRID_API_KEY);
-
 // console.log("env >>>>>>>", env);
 
 const CLIENT_URL =
