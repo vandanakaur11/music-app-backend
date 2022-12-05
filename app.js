@@ -21,10 +21,10 @@ const app = express();
 // DB Config
 connectDB();
 
-const bucketName = env.AWS_BUCKET_NAME;
-const accessKeyId = env.AWS_ACCESS_KEY;
-const secretAccessKey = env.AWS_SECRET_KEY;
-const region = env.AWS_REGION;
+const bucketName = env.AWS_BUCKET_NAMEE;
+const accessKeyId = env.AWS_ACCESS_KEYY;
+const secretAccessKey = env.AWS_SECRET_KEYY;
+const region = env.AWS_REGIONN;
 
 // AWS config
 const s3 = new AWS.S3({
