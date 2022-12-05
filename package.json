@@ -4,14 +4,13 @@
   "description": "This repo for music app backend",
   "main": "server.js",
   "scripts": {
-    "start": "NODE_ENV=production node server",
+    "start": "cross-env NODE_ENV=production node server",
     "dev": "cross-env NODE_ENV=development nodemon server"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@sendgrid/mail": "^7.7.0",
     "aws-sdk": "^2.1012.0",
     "axios": "^0.24.0",
     "bcrypt": "^5.0.1",

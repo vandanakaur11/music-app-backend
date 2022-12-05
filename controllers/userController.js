@@ -13,7 +13,6 @@ const codes = require("./../data/codes");
 const nodemailer = require("nodemailer");
 const moment = require("moment");
 const { env } = require("process");
-const sgMail = require("@sendgrid/mail");
 const paypal = require("paypal-rest-sdk");
 
 // console.log("env >>>>>>>>>>>>>", env);
@@ -1310,25 +1309,6 @@ exports.accessCodeForSubscription = async (req, res) => {
     }
   } catch (err) {
     return null;
-  }
-};
-
-const sendMailViaSendGrid = async (mailDetails) => {
-  try {
-    await sgMail
-      .send(mailDetails)
-      .then(() => {
-        console.log("Mail sent successfully!");
-      })
-      .catch((err) => {
-        console.error("sendMailViaSendGrid err >>>>>>>>>>>>>>>>>>", err);
-      });
-  } catch (error) {
-    console.error(error);
-
-    if (error.response) {
-      console.error(error.response.body);
-    }
   }
 };
 
