@@ -42,6 +42,7 @@ app.use(
       "https://app.ianmulder.us",
       "https://music-app-ten.vercel.app",
       "https://music-app-rho-ruby.vercel.app",
+      "https://music-app-admin-ruby.vercel.app",
     ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   })
