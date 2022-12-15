@@ -685,17 +685,17 @@ exports.signIn = async (req, res) => {
           user: existingUser?.email,
         },
       });
-    } else {
-      const token = jwt.sign({ id: existingUser?._id }, env.JWT_SECRET_KEY);
-      const user = {
-        email,
-        token,
-        subscriptionID: existingUser?.subscription?._id,
-        trial: existingUser?.trial,
-      };
-
-      res.status(200).json({ status: "success", data: { user } });
     }
+
+    const token = jwt.sign({ id: existingUser?._id }, env.JWT_SECRET_KEY);
+    const user = {
+      email,
+      token,
+      subscriptionID: existingUser?.subscription?._id,
+      trial: existingUser?.trial,
+    };
+
+    res.status(200).json({ status: "success", data: { user } });
   } catch (err) {
     console.log("err >>>>>>>>", err);
 
@@ -997,14 +997,29 @@ exports.getExpiringDays = async (req, res) => {
       let end = moment(currentDate, "YYYY-MM-DD");
       let diff = Math.abs(moment.duration(start.diff(end)).asDays());
 
+      console.log("start < end", start < end);
+
       console.log("diff >>>>>>>>>>>>>", diff);
 
-      if (diff === 0) {
-        loggedInUser.trial = false;
-        loggedInUser.subscriptionEndDate = "";
+      if (start < end) {
+        const expiredSubscription = await User.updateOne(
+          { email: loggedInUser?.email },
+          {
+            $set: {
+              trial: false,
+              subscriptionEndDate: "",
+            },
+          },
+          { runValidators: true }
+        );
+
+        if (expiredSubscription)
+          return res
+            .status(200)
+            .json({ status: "success", data: { days: null } });
       }
 
-      res.status(200).json({ status: "success", data: { days: diff } });
+      return res.status(200).json({ status: "success", data: { days: diff } });
     }
 
     /* User.findOne({ email: req.params.email }).then((user) => {
