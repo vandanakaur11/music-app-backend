@@ -792,6 +792,7 @@ exports.extendSubscription = async (req, res) => {
           code,
           subscription: subscription._id,
           subscriptionEndDate: endDate,
+          trial: true,
         },
       },
       { new: true, runValidators: true }
